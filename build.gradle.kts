@@ -5,6 +5,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 val ktor_version: String by project
 val coroutines_version:String by project
 val serialization_version:String by project
+val kotlinx_html_version:String by project
+
 
 plugins {
     kotlin("multiplatform")
@@ -73,7 +75,7 @@ kotlin {
                 implementation("io.ktor:ktor-server-cors")
                 implementation("io.ktor:ktor-server-websockets")
 
-                implementation("org.jetbrains.kotlinx:kotlinx-html-jvm")
+                implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:$kotlinx_html_version")
             }
         }
         val jvmTest by getting
@@ -92,6 +94,11 @@ kotlin {
             }
         }
     }
+}
+
+tasks.named<Copy>("jvmProcessResources") {
+    val jsBrowserDistribution = tasks.named("jsBrowserDistribution")
+    from(jsBrowserDistribution)
 }
 
 tasks.named<JavaExec>("run") {

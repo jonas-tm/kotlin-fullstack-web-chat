@@ -1,4 +1,4 @@
-# (WIP) Kotlin Multiplatform Fullstack Chat
+# Kotlin Multiplatform Fullstack Chat
 
 - Kotlin/JVM Ktor Server
 - Kotlin/JS Compose Web Frontend
@@ -12,5 +12,5 @@
 
 ## Run
 
-- Start Server `./gradlew :runFatJar`
-- Start Client `./gradlew :jsBrowserDevelopmentRun`
+- Start `./gradlew :run`
+- Open http://localhost:8080
