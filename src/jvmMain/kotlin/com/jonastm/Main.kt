@@ -1,7 +1,6 @@
 package com.jonastm
 
-import com.jonastm.model.NewMessage
-import com.jonastm.model.UserMessage
+import com.jonastm.model.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.*
 import io.ktor.server.application.*
@@ -16,11 +15,36 @@ import kotlinx.html.*
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.random.Random
 
 private val connections: MutableSet<Connection> = Collections.synchronizedSet<Connection?>(LinkedHashSet())
 
+suspend fun sendAll(action: ServerAction) {
+    connections.forEach { conn ->
+        conn.send(action)
+    }
+}
+
+class ClientActionHandlerImpl(val connection: Connection): ClientActionHandler {
+    override suspend fun onNewMessage(action: NewMessageAction) {
+        sendAll(UserMessageAction(
+            Random.nextLong().toString(),
+            action.text,
+            connection.name
+        ))
+    }
+
+    override suspend fun onDeleteMessage(action: DeleteMessageAction) {
+        sendAll(RemoveAction(action.id))
+    }
+
+    override suspend fun onError(e: Exception) {
+        e.printStackTrace()
+    }
+}
+
 fun main() {
-    embeddedServer(Netty, port = 8080, host = "127.0.0.1") {
+    embeddedServer(Netty, port = 8078, host = "127.0.0.1") {
         configuration()
         routes()
     }.start(wait = true)
@@ -69,14 +93,13 @@ suspend fun WebSocketServerSession.handleNewConnection() {
     connections.add(thisConnection)
     println("Added ${thisConnection.name}")
 
+    val handler = ClientActionHandlerImpl(thisConnection)
+
     try {
-        sendSerialized(UserMessage("Welcome to our server", "Server"))
+        thisConnection.send(UserMessageAction(Random.nextLong().toString(),"Welcome to our server", "Server"))
         while (true) {
-            val msg = receiveDeserialized<NewMessage>()
-            val userMsg = UserMessage(msg.text, thisConnection.name)
-            connections.forEach { conn ->
-                conn.send(userMsg)
-            }
+            val action = receiveDeserialized<ClientAction>()
+            onAction(action, handler)
         }
     } catch (e: Exception) {
         println(e.localizedMessage)
@@ -96,7 +119,7 @@ class Connection(
 
     val name = "user${lastId.getAndIncrement()}"
 
-    suspend fun send(msg: UserMessage) {
+    suspend fun send(msg: ServerAction) {
         session.sendSerialized(msg)
     }
 }

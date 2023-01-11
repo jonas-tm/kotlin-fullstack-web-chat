@@ -3,9 +3,10 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val ktor_version: String by project
-val coroutines_version:String by project
-val serialization_version:String by project
-val kotlinx_html_version:String by project
+val coroutines_version: String by project
+val serialization_version: String by project
+val kotlinx_html_version: String by project
+val kotlinx_datetime_version: String by project
 
 
 plugins {
@@ -54,13 +55,15 @@ kotlin {
             dependencies {
                 implementation(compose.runtime)
 
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version")
+
                 implementation("io.ktor:ktor-client-core:$ktor_version")
                 implementation("io.ktor:ktor-client-resources:$ktor_version")
 
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serialization_version")
                 implementation("io.ktor:ktor-serialization-kotlinx-protobuf:$ktor_version")
 
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serialization_version")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines_version")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:$kotlinx_datetime_version")
             }
         }
         val commonTest by getting {
@@ -84,8 +87,9 @@ kotlin {
                 implementation(compose.web.core)
                 implementation(compose.runtime)
 
-                implementation("io.ktor:ktor-client-js:$ktor_version")
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core-js:$coroutines_version")
+
+                implementation("io.ktor:ktor-client-js:$ktor_version")
             }
         }
         val jsTest by getting {

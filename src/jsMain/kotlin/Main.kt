@@ -1,6 +1,6 @@
 import androidx.compose.runtime.mutableStateListOf
-import com.jonastm.model.NewMessage
-import com.jonastm.model.UserMessage
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import com.jonastm.model.*
 import io.ktor.client.*
 import io.ktor.client.engine.js.*
 import io.ktor.client.plugins.websocket.*
@@ -9,16 +9,18 @@ import io.ktor.serialization.kotlinx.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.jetbrains.compose.web.css.*
 import org.jetbrains.compose.web.dom.*
 import org.jetbrains.compose.web.renderComposable
 
 fun main() {
-    val messages = mutableStateListOf<UserMessage>()
-    val chat = ChatStream {
-        messages.add(it)
-    }
+    val messages = mutableStateListOf<UserMessageAction>()
+    val handler = ServerActionHandlerImpl(messages)
+    val chat = ChatStream(handler)
 
     var inputText = ""
 
@@ -37,10 +39,43 @@ fun main() {
                     flexDirection(FlexDirection.ColumnReverse)
                 }
             }) {
-                Ul {
+                Div(attrs = {
+                    style {
+                        display(DisplayStyle.Flex)
+                        flexDirection(FlexDirection.Column)
+                    }
+                }) {
                     messages.forEach {
-                        P {
-                            Text("[${it.username}]: ${it.text}")
+                        val message = it
+                        Div(attrs = {
+                            style {
+                                display(DisplayStyle.Flex)
+                                flexDirection(FlexDirection.Row)
+                                alignItems(AlignItems.Baseline)
+                                gap(10.px)
+                            }
+                        }) {
+                            P {
+                                Text(convertTime(message.time))
+                            }
+                            P(attrs = {
+                                style {
+                                    fontWeight(500)
+                                }
+                            }){
+                                Text("[${it.username}]: ${it.text}")
+                            }
+                            Button(attrs = {
+                                onClick {
+                                    CoroutineScope(Dispatchers.Default).launch {
+                                        chat.send(DeleteMessageAction(message.id)) {
+                                            messages.add(UserMessageAction(0L.toString(),"${it.message}", "ERROR"))
+                                        }
+                                    }
+                                }
+                            }) {
+                                Text("X")
+                            }
                         }
                     }
                 }
@@ -62,8 +97,8 @@ fun main() {
                 onClick {
                     CoroutineScope(Dispatchers.Default).launch {
                         if (inputText.isNotBlank()) {
-                            chat.send(NewMessage(inputText)) {
-                                messages.add(UserMessage("${it.message}", "ERROR"))
+                            chat.send(NewMessageAction(inputText)) {
+                                messages.add(UserMessageAction(1L.toString(),"${it.message}", "ERROR"))
                             }
                         }
                     }
@@ -75,8 +110,33 @@ fun main() {
     }
 }
 
+class ServerActionHandlerImpl(
+    private val messages: SnapshotStateList<UserMessageAction>
+) : ServerActionHandler {
+    override suspend fun onError(e: Exception) {
+        messages.add(
+            UserMessageAction(0L.toString(),"${e.message}", "ERROR")
+        )
+    }
+
+    override suspend fun onRemoveMessage(action: RemoveAction) {
+        var itemToRemove: UserMessageAction? = null
+        for (message in messages) {
+            if (message.id == action.id) {
+                itemToRemove = message
+                break
+            }
+        }
+        messages.remove(itemToRemove)
+    }
+
+    override suspend fun onUserMessage(action: UserMessageAction) {
+        messages.add(action)
+    }
+}
+
 class ChatStream(
-    val onMessage: suspend (UserMessage) -> Unit,
+    private val serverActionHandler: ServerActionHandler
 ) {
 
     private val client = HttpClient(Js) {
@@ -91,18 +151,31 @@ class ChatStream(
         CoroutineScope(Dispatchers.Default).launch {
             client.webSocket(method = HttpMethod.Get, path = "/ws") {
                 wsSession = this
-                receive<UserMessage> {
-                    onMessage(it)
+                receive<ServerAction> {
+                    onAction(it, serverActionHandler)
                 }
             }
         }
     }
 
-    suspend fun send(msg: NewMessage, onError: (Exception) -> Unit) {
+    suspend fun send(msg: ClientAction, onError: (Exception) -> Unit) {
         wsSession?.sendMessage(msg, onError) ?: apply {
             onError(Exception("No connected to chat"))
         }
     }
+}
+
+fun convertTime(instant: Instant): String {
+    val time = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+    val hour = when {
+        (time.hour > 9) -> "${time.hour}"
+        else -> " ${time.hour}"
+    }
+    val minutes = when {
+        (time.minute > 9) -> "${time.minute}"
+        else -> " ${time.minute}"
+    }
+    return "$hour:$minutes"
 }
 
 suspend inline fun <reified T> DefaultClientWebSocketSession.receive(onMessage: (T) -> Unit) {

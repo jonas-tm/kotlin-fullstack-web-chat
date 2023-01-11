@@ -3,7 +3,8 @@
 - Kotlin/JVM Ktor Server
 - Kotlin/JS Compose Web Frontend
 - Shared DTOs
-- WebSocket communication with ProtoBuf serialization
+- WebSocket communication with ProtoBuf
+- Generic server-client communication via polymorphic serialization
 
 ![img.png](docs/images/screenshot.png)
 
