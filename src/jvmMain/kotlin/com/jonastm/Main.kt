@@ -27,7 +27,7 @@ fun main() {
 }
 
 fun Application.configuration() {
-    // Disable cors checks
+    // Disable cors checks (needed when debugging)
     install(CORS) {
         anyHost()
         allowMethod(HttpMethod.Get)

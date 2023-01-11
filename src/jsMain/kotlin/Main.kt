@@ -89,7 +89,7 @@ class ChatStream(
 
     init {
         CoroutineScope(Dispatchers.Default).launch {
-            client.webSocket(method = HttpMethod.Get, host = "127.0.0.1", port =8080, path = "/ws") {
+            client.webSocket(method = HttpMethod.Get, path = "/ws") {
                 wsSession = this
                 receive<UserMessage> {
                     onMessage(it)
